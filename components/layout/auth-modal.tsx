@@ -7,16 +7,22 @@ import { Chrome } from "lucide-react";
 
 export function AuthModal({ onClose }: { onClose?: () => void }) {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const supabase = createClient();
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
-    await supabase.auth.signInWithOAuth({
+    setError(null);
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
       },
     });
+    if (error) {
+      setError(error.message);
+      setLoading(false);
+    }
   };
 
   return (
@@ -37,6 +43,9 @@ export function AuthModal({ onClose }: { onClose?: () => void }) {
           {loading ? "Redirecting…" : "Continue with Google"}
         </Button>
 
+        {error && (
+          <p className="text-xs text-center text-red-500 mt-4">{error}</p>
+        )}
         <p className="text-xs text-center text-muted-foreground mt-6">
           By signing in you agree to our terms. Your API keys are encrypted and never shared.
         </p>
