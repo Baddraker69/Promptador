@@ -3,7 +3,9 @@
 import { motion } from "framer-motion";
 import { ArrowRight, Sparkles, Users, ImageIcon, Library, Star, Zap, Lock } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { AuthModal } from "@/components/layout/auth-modal";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
@@ -15,6 +17,10 @@ const stagger = {
 };
 
 export default function LandingPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const showAuth = searchParams.get("auth") === "login";
+
   return (
     <div className="min-h-screen bg-background grid-bg noise">
       {/* Nav */}
@@ -235,6 +241,7 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+      {showAuth && <AuthModal onClose={() => router.replace("/")} />}
     </div>
   );
 }
