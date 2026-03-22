@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight, Sparkles, Users, ImageIcon, Library, Star, Zap, Lock } from "lucide-react";
 import Link from "next/link";
@@ -16,11 +17,14 @@ const stagger = {
   visible: { transition: { staggerChildren: 0.1 } },
 };
 
-export default function LandingPage() {
+function AuthModalController() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const showAuth = searchParams.get("auth") === "login";
+  if (searchParams.get("auth") !== "login") return null;
+  return <AuthModal onClose={() => router.replace("/")} />;
+}
 
+export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background grid-bg noise">
       {/* Nav */}
@@ -241,7 +245,9 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
-      {showAuth && <AuthModal onClose={() => router.replace("/")} />}
+      <Suspense>
+        <AuthModalController />
+      </Suspense>
     </div>
   );
 }
