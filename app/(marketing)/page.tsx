@@ -1,10 +1,9 @@
 "use client";
 
-import { Suspense } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight, Sparkles, Users, ImageIcon, Library, Star, Zap, Lock } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { AuthModal } from "@/components/layout/auth-modal";
 
@@ -17,14 +16,14 @@ const stagger = {
   visible: { transition: { staggerChildren: 0.1 } },
 };
 
-function AuthModalController() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  if (searchParams.get("auth") !== "login") return null;
-  return <AuthModal onClose={() => router.replace("/")} />;
-}
-
 export default function LandingPage() {
+  const [showAuth, setShowAuth] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("auth") === "login") setShowAuth(true);
+  }, []);
+
   return (
     <div className="min-h-screen bg-background grid-bg noise">
       {/* Nav */}
@@ -245,9 +244,7 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
-      <Suspense>
-        <AuthModalController />
-      </Suspense>
+      {showAuth && <AuthModal onClose={() => { setShowAuth(false); window.history.replaceState({}, "", "/"); }} />}
     </div>
   );
 }
