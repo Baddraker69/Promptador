@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ImageIcon, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -37,6 +37,19 @@ export default function ImagePromptPage() {
   const [saving, setSaving] = useState(false);
   const [savedId, setSavedId] = useState<string | undefined>();
   const [activeTab, setActiveTab] = useState<"imagen" | "midjourney" | "dalle3" | "stable_diffusion">("imagen");
+
+  useEffect(() => {
+    const provider = model.split(":")[0];
+    const supabase = createClient();
+    supabase
+      .from("api_keys")
+      .select("key_encrypted")
+      .eq("provider", provider)
+      .single()
+      .then(({ data }) => {
+        if (data?.key_encrypted) setApiKey(data.key_encrypted);
+      });
+  }, [model]);
 
   const handleGenerate = async () => {
     if (!concept.trim() || !apiKey.trim()) return;

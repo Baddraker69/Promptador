@@ -30,7 +30,7 @@ export default function LandingPage() {
             <Link href="/gallery">
               <Button variant="ghost" size="sm">Gallery</Button>
             </Link>
-            <Link href="/dashboard">
+            <Link href="/login">
               <Button size="sm">Get started <ArrowRight className="w-3.5 h-3.5" /></Button>
             </Link>
           </div>
@@ -68,7 +68,7 @@ export default function LandingPage() {
           </motion.p>
 
           <motion.div variants={fadeUp} className="flex items-center justify-center gap-4 flex-wrap">
-            <Link href="/dashboard">
+            <Link href="/login">
               <Button size="lg" className="gap-2 text-base">
                 Start for free
                 <ArrowRight className="w-4 h-4" />
@@ -189,7 +189,7 @@ export default function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <Link href="/dashboard">
+              <Link href="/login">
                 <Button variant="outline" className="w-full">Get started free</Button>
               </Link>
             </motion.div>
@@ -208,7 +208,7 @@ export default function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <Link href="/dashboard">
+              <Link href="/login">
                 <Button className="w-full">Start pro trial</Button>
               </Link>
             </motion.div>
@@ -227,7 +227,7 @@ export default function LandingPage() {
           </div>
           <div className="flex items-center gap-6 text-sm text-muted-foreground">
             <Link href="/gallery" className="hover:text-foreground transition-colors">Gallery</Link>
-            <Link href="/dashboard" className="hover:text-foreground transition-colors">App</Link>
+            <Link href="/login" className="hover:text-foreground transition-colors">App</Link>
             <div className="flex items-center gap-1">
               <Lock className="w-3 h-3" />
               Your keys stay private

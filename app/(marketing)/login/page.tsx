@@ -1,26 +1,30 @@
-"use client";
-
-import { Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
 import { AuthModal } from "@/components/layout/auth-modal";
 
-function LoginContent() {
-  const searchParams = useSearchParams();
-  const error = searchParams.get("error");
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: { error?: string };
+}) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user) {
+    redirect("/dashboard");
+  }
 
   return (
-    <AuthModal
-      authError={error === "auth_failed" ? "Sign in failed. Please try again." : undefined}
-    />
-  );
-}
-
-export default function LoginPage() {
-  return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
-      <Suspense>
-        <LoginContent />
-      </Suspense>
+    <div className="min-h-screen bg-background">
+      <AuthModal
+        authError={
+          searchParams.error === "auth_failed"
+            ? "Sign in failed. Please try again."
+            : undefined
+        }
+      />
     </div>
   );
 }

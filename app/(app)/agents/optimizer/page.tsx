@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sparkles, Loader2, AlertCircle, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,6 +29,19 @@ export default function OptimizerPage() {
   const [result, setResult] = useState<OptimiserResult | null>(null);
   const [saving, setSaving] = useState(false);
   const [savedId, setSavedId] = useState<string | undefined>();
+
+  useEffect(() => {
+    const provider = model.split(":")[0];
+    const supabase = createClient();
+    supabase
+      .from("api_keys")
+      .select("key_encrypted")
+      .eq("provider", provider)
+      .single()
+      .then(({ data }) => {
+        if (data?.key_encrypted) setApiKey(data.key_encrypted);
+      });
+  }, [model]);
 
   const handleOptimise = async () => {
     if (!prompt.trim() || !apiKey.trim()) return;
