@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe/client";
+import { getStripe } from "@/lib/stripe/client";
 import { createClient } from "@supabase/supabase-js";
 import type Stripe from "stripe";
 
@@ -14,6 +14,7 @@ export async function POST(request: NextRequest) {
 
   if (!signature) return NextResponse.json({ error: "No signature" }, { status: 400 });
 
+  const stripe = getStripe();
   let event: Stripe.Event;
   try {
     event = stripe.webhooks.constructEvent(body, signature, process.env.STRIPE_WEBHOOK_SECRET!);
