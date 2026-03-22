@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowRight, Sparkles, Users, ImageIcon, Library, Star, Zap, Lock } from "lucide-react";
 import Link from "next/link";
@@ -16,14 +17,24 @@ const stagger = {
   visible: { transition: { staggerChildren: 0.1 } },
 };
 
+function AuthHandler() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const authParam = searchParams.get("auth");
+  const errorParam = searchParams.get("error");
+
+  if (authParam === "login" || errorParam === "auth_failed") {
+    return (
+      <AuthModal
+        authError={errorParam === "auth_failed" ? "Sign in failed. Please try again." : undefined}
+        onClose={() => router.replace("/")}
+      />
+    );
+  }
+  return null;
+}
+
 export default function LandingPage() {
-  const [showAuth, setShowAuth] = useState(false);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("auth") === "login") setShowAuth(true);
-  }, []);
-
   return (
     <div className="min-h-screen bg-background grid-bg noise">
       {/* Nav */}
@@ -244,7 +255,9 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
-      {showAuth && <AuthModal onClose={() => { setShowAuth(false); window.history.replaceState({}, "", "/"); }} />}
+      <Suspense>
+        <AuthHandler />
+      </Suspense>
     </div>
   );
 }

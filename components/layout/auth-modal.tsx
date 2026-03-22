@@ -5,9 +5,9 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Chrome } from "lucide-react";
 
-export function AuthModal({ onClose }: { onClose?: () => void }) {
+export function AuthModal({ onClose, authError }: { onClose?: () => void; authError?: string }) {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(authError ?? null);
   const supabase = createClient();
 
   const handleGoogleSignIn = async () => {
