@@ -71,8 +71,8 @@ alter table prompt_versions enable row level security;
 alter table prompt_likes enable row level security;
 
 -- Profiles policies
-create policy "Users can view their own profile"
-  on profiles for select using (auth.uid() = id);
+create policy "Profiles are publicly readable"
+  on profiles for select using (true);
 
 create policy "Users can update their own profile"
   on profiles for update using (auth.uid() = id);
