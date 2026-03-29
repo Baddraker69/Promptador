@@ -1,58 +1,74 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Users, Loader2, AlertCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { ModelSelector } from "@/components/agents/model-selector";
-import { PromptOutput } from "@/components/agents/prompt-output";
+import { useState } from "react";
+import { Plus, History, FileText, RefreshCw, Users, Zap } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
-const EXAMPLES = [
-  "A customer support pipeline with triage, specialist agents, and escalation handling",
-  "A research assistant that searches the web, synthesises findings, and writes reports",
-  "A software development team: architect, coder, reviewer, and documentation writer",
-];
+const GODZILLA_IMG = "/godzilla.jpg";
 
 export default function AgenticTeamPage() {
-  const [description, setDescription] = useState("");
-  const [model, setModel] = useState("anthropic:claude-sonnet-4-6");
-  const [apiKey, setApiKey] = useState("");
+  const [prompt, setPrompt] = useState("");
+  const [context, setContext] = useState("");
+  const [tools, setTools] = useState<string[]>([]);
+  const [toolInput, setToolInput] = useState("");
+  const [placeholders, setPlaceholders] = useState<string[]>([]);
+  const [placeholderInput, setPlaceholderInput] = useState("");
+  const [agentMode, setAgentMode] = useState<"single" | "agentic">("agentic");
   const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [result, setResult] = useState<{ content: string; model: string } | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [savedId, setSavedId] = useState<string | undefined>();
+  const supabase = createClient();
 
-  useEffect(() => {
-    const provider = model.split(":")[0];
-    const supabase = createClient();
-    supabase
-      .from("api_keys")
-      .select("key_encrypted")
-      .eq("provider", provider)
-      .single()
-      .then(({ data }) => {
-        if (data?.key_encrypted) setApiKey(data.key_encrypted);
-      });
-  }, [model]);
+  const addTool = () => {
+    const t = toolInput.trim();
+    if (t && !tools.includes(t)) setTools((prev) => [...prev, t]);
+    setToolInput("");
+  };
+
+  const addPlaceholder = () => {
+    const p = placeholderInput.trim().toUpperCase();
+    if (p && !placeholders.includes(p)) setPlaceholders((prev) => [...prev, p]);
+    setPlaceholderInput("");
+  };
 
   const handleGenerate = async () => {
-    if (!description.trim() || !apiKey.trim()) return;
+    if (!prompt.trim()) return;
     setLoading(true);
     setError("");
     setResult(null);
-    setSavedId(undefined);
 
     try {
+      const { data: keyData } = await supabase
+        .from("api_keys")
+        .select("key_encrypted")
+        .eq("provider", "anthropic")
+        .single();
+
+      const apiKey = keyData?.key_encrypted;
+      if (!apiKey) throw new Error("No Anthropic API key saved. Add one in Settings.");
+
+      const description = [
+        prompt,
+        context && `Context: ${context}`,
+        tools.length && `Available tools: ${tools.join(", ")}`,
+        placeholders.length && `Placeholders: ${placeholders.map((p) => `{{${p}}}`).join(", ")}`,
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+
       const res = await fetch("/api/agents/agentic-team", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ description, model, apiKey }),
+        body: JSON.stringify({
+          description,
+          model: "anthropic:claude-sonnet-4-6",
+          apiKey,
+        }),
       });
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setResult(data);
+      setResult(data.content);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
     } finally {
@@ -62,118 +78,249 @@ export default function AgenticTeamPage() {
 
   const handleSave = async () => {
     if (!result) return;
-    setSaving(true);
-    try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const title = `Agentic Team: ${description.slice(0, 60)}`;
-      const { data, error } = await supabase.from("prompts").insert({
-        user_id: user.id,
-        title,
-        content: result.content,
-        type: "agentic",
-        agent_type: "agentic-team",
-        model_used: result.model,
-        tags: ["agentic", "multi-agent"],
-        metadata: { description },
-      }).select().single();
-
-      if (error) throw error;
-      setSavedId(data.id);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save");
-    } finally {
-      setSaving(false);
-    }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase.from("prompts").insert({
+      user_id: user.id,
+      title: `Agentic Team: ${prompt.slice(0, 60)}`,
+      content: result,
+      type: "agentic",
+      agent_type: "agentic-team",
+      model_used: "anthropic:claude-sonnet-4-6",
+      tags: ["agentic", "multi-agent"],
+      metadata: { prompt, context, tools, placeholders },
+    });
   };
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-9 h-9 rounded-xl bg-blue-500/10 flex items-center justify-center">
-            <Users className="w-5 h-5 text-blue-400" />
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight">Agentic Team</h1>
+    <div className="flex flex-col h-screen bg-[#1a1a1a] overflow-hidden">
+      {/* Header */}
+      <div className="px-6 pt-5 pb-3 flex items-start justify-between border-b border-[#2a2a2a]">
+        <div>
+          <h1 className="text-3xl font-black tracking-widest text-[#d4a017] uppercase">
+            Prompt Generator
+          </h1>
+          <p className="text-[#666] text-xs mt-0.5">Forge multi-agent prompts that level cities</p>
         </div>
-        <p className="text-muted-foreground ml-12">
-          Describe a system or workflow. Get back a complete set of agent prompts — orchestrator, specialists, and protocols.
-        </p>
+        <div className="flex gap-2">
+          <button className="flex items-center gap-1.5 text-xs text-[#888] border border-[#333] px-3 py-1.5 rounded hover:border-[#555] hover:text-[#aaa] transition-colors">
+            <History className="w-3.5 h-3.5" />
+            History
+          </button>
+          <button className="flex items-center gap-1.5 text-xs text-[#888] border border-[#333] px-3 py-1.5 rounded hover:border-[#555] hover:text-[#aaa] transition-colors">
+            <FileText className="w-3.5 h-3.5" />
+            Templates
+          </button>
+        </div>
       </div>
 
-      <div className="space-y-6">
-        {/* Config */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="text-sm font-medium mb-2 block">Model</label>
-            <ModelSelector value={model} onChange={setModel} />
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left form panel */}
+        <div className="w-80 shrink-0 border-r border-[#2a2a2a] flex flex-col overflow-y-auto">
+          <div className="p-5 space-y-5 flex-1">
+            {/* Feed Me Your Prompt */}
+            <div>
+              <label className="text-[10px] font-bold tracking-widest text-[#d4a017] uppercase block mb-2">
+                Feed Me Your Prompt
+              </label>
+              <textarea
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder="Describe what this agent team should accomplish..."
+                rows={4}
+                className="w-full bg-[#222] border border-[#333] rounded px-3 py-2 text-sm text-[#ccc] placeholder:text-[#555] resize-none focus:outline-none focus:border-[#d4a017]/50"
+              />
+            </div>
+
+            {/* Context */}
+            <div>
+              <label className="text-[10px] font-bold tracking-widest text-[#888] uppercase block mb-2">
+                Context / Background
+              </label>
+              <textarea
+                value={context}
+                onChange={(e) => setContext(e.target.value)}
+                placeholder="Any relevant context or constraints..."
+                rows={3}
+                className="w-full bg-[#222] border border-[#333] rounded px-3 py-2 text-sm text-[#ccc] placeholder:text-[#555] resize-none focus:outline-none focus:border-[#555]"
+              />
+            </div>
+
+            {/* Attach File */}
+            <div>
+              <label className="text-[10px] font-bold tracking-widest text-[#888] uppercase block mb-2">
+                Attach File <span className="text-[#555] normal-case">(optional)</span>
+              </label>
+              <label className="flex items-center gap-2 border border-dashed border-[#333] rounded px-3 py-2 text-sm text-[#555] cursor-pointer hover:border-[#555] hover:text-[#888] transition-colors">
+                <FileText className="w-3.5 h-3.5 text-[#d4a017]" />
+                Click to attach .txt, .md, .json, .csv
+                <input type="file" accept=".txt,.md,.json,.csv" className="hidden" />
+              </label>
+            </div>
+
+            {/* Available Tools */}
+            <div>
+              <label className="text-[10px] font-bold tracking-widest text-[#888] uppercase block mb-1">
+                Available Tools <span className="text-[#555] normal-case">(optional)</span>
+              </label>
+              <p className="text-[10px] text-[#555] mb-2">Injected into relevant agent prompts</p>
+              {tools.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {tools.map((t) => (
+                    <span
+                      key={t}
+                      onClick={() => setTools((prev) => prev.filter((x) => x !== t))}
+                      className="text-xs bg-[#2a2a2a] border border-[#333] text-[#999] px-2 py-0.5 rounded cursor-pointer hover:border-red-500/50 hover:text-red-400 transition-colors"
+                    >
+                      {t} ×
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input
+                  value={toolInput}
+                  onChange={(e) => setToolInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addTool()}
+                  placeholder="Type a tool and press Enter..."
+                  className="flex-1 bg-[#222] border border-[#333] rounded px-3 py-1.5 text-sm text-[#ccc] placeholder:text-[#555] focus:outline-none focus:border-[#555]"
+                />
+                <button
+                  onClick={addTool}
+                  className="w-8 h-8 flex items-center justify-center bg-[#222] border border-[#333] rounded hover:border-[#555] text-[#888] hover:text-[#ccc] transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Placeholders */}
+            <div>
+              <label className="text-[10px] font-bold tracking-widest text-[#888] uppercase block mb-1">
+                Placeholders <span className="text-[#555] normal-case">(optional)</span>
+              </label>
+              <p className="text-[10px] text-[#555] mb-2">
+                Variables that change per client or use case. Added as {`{{PLACEHOLDER}}`} syntax in every prompt.
+              </p>
+              {placeholders.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-2">
+                  {placeholders.map((p) => (
+                    <span
+                      key={p}
+                      onClick={() => setPlaceholders((prev) => prev.filter((x) => x !== p))}
+                      className="text-xs bg-[#2a2a2a] border border-[#333] text-[#d4a017] px-2 py-0.5 rounded cursor-pointer hover:border-red-500/50 hover:text-red-400 transition-colors font-mono"
+                    >
+                      {`{{${p}}}`} ×
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input
+                  value={placeholderInput}
+                  onChange={(e) => setPlaceholderInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addPlaceholder()}
+                  placeholder="e.g. CLIENT_NAME, INDUSTRY..."
+                  className="flex-1 bg-[#222] border border-[#333] rounded px-3 py-1.5 text-sm text-[#ccc] placeholder:text-[#555] focus:outline-none focus:border-[#555]"
+                />
+                <button
+                  onClick={addPlaceholder}
+                  className="w-8 h-8 flex items-center justify-center bg-[#222] border border-[#333] rounded hover:border-[#555] text-[#888] hover:text-[#ccc] transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Agent Structure */}
+            <div>
+              <label className="text-[10px] font-bold tracking-widest text-[#888] uppercase block mb-2">
+                Agent Structure
+              </label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setAgentMode("single")}
+                  className={`flex-1 flex flex-col items-center gap-1.5 py-3 rounded border text-xs font-medium transition-colors ${
+                    agentMode === "single"
+                      ? "bg-[#d4a017]/10 border-[#d4a017] text-[#d4a017]"
+                      : "bg-[#222] border-[#333] text-[#666] hover:border-[#555] hover:text-[#999]"
+                  }`}
+                >
+                  <Users className="w-4 h-4" />
+                  Single Agent
+                </button>
+                <button
+                  onClick={() => setAgentMode("agentic")}
+                  className={`flex-1 flex flex-col items-center gap-1.5 py-3 rounded border text-xs font-medium transition-colors ${
+                    agentMode === "agentic"
+                      ? "bg-[#d4a017]/10 border-[#d4a017] text-[#d4a017]"
+                      : "bg-[#222] border-[#333] text-[#666] hover:border-[#555] hover:text-[#999]"
+                  }`}
+                >
+                  <Users className="w-4 h-4" />
+                  Agentic Team
+                </button>
+              </div>
+            </div>
           </div>
-          <div>
-            <label className="text-sm font-medium mb-2 block">API Key</label>
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="Paste your API key…"
-              className="flex h-10 w-full rounded-lg border border-border bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            />
+
+          {/* Generate button */}
+          <div className="p-5 border-t border-[#2a2a2a]">
+            {error && (
+              <p className="text-xs text-red-400 mb-3">{error}</p>
+            )}
+            <button
+              onClick={handleGenerate}
+              disabled={loading || !prompt.trim()}
+              className="w-full bg-[#c0392b] hover:bg-[#a93226] disabled:bg-[#c0392b]/40 disabled:cursor-not-allowed text-white font-bold tracking-widest uppercase py-3 rounded flex items-center justify-center gap-2 transition-colors text-sm"
+            >
+              {loading ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                <Zap className="w-4 h-4" />
+              )}
+              {loading ? "Generating..." : "Generate →"}
+            </button>
           </div>
         </div>
 
-        {/* Description */}
-        <div>
-          <label className="text-sm font-medium mb-2 block">System description</label>
-          <Textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Describe the agentic system you want to build…"
-            className="min-h-[140px]"
-          />
-          {/* Examples */}
-          <div className="flex flex-wrap gap-2 mt-2">
-            {EXAMPLES.map((ex) => (
-              <button
-                key={ex}
-                onClick={() => setDescription(ex)}
-                className="text-xs px-3 py-1 rounded-full border border-border/60 text-muted-foreground hover:text-foreground hover:border-border transition-all"
-              >
-                {ex.slice(0, 50)}…
-              </button>
-            ))}
-          </div>
+        {/* Right image/output panel */}
+        <div className="flex-1 relative overflow-hidden">
+          {result ? (
+            /* Output */
+            <div className="absolute inset-0 flex flex-col bg-[#1a1a1a]">
+              <div className="flex items-center justify-between px-6 py-3 border-b border-[#2a2a2a]">
+                <span className="text-xs font-bold tracking-widest text-[#d4a017] uppercase">Output</span>
+                <button
+                  onClick={handleSave}
+                  className="text-xs text-[#888] border border-[#333] px-3 py-1.5 rounded hover:border-[#555] hover:text-[#aaa] transition-colors"
+                >
+                  Save to Library
+                </button>
+              </div>
+              <pre className="flex-1 overflow-y-auto p-6 text-sm font-mono text-[#ccc] leading-relaxed whitespace-pre-wrap break-words">
+                {result}
+              </pre>
+            </div>
+          ) : (
+            /* Awaiting state — image fills entire panel */
+            <div className="absolute inset-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={GODZILLA_IMG}
+                alt="Awaiting transmission"
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+              {/* Overlay */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30">
+                <p className="text-[#d4a017] font-black tracking-widest uppercase text-2xl">
+                  Awaiting Transmission
+                </p>
+                <p className="text-[#ccc] text-sm italic mt-2">Feed the monster a prompt.</p>
+              </div>
+            </div>
+          )}
         </div>
-
-        <Button
-          onClick={handleGenerate}
-          disabled={loading || !description.trim() || !apiKey.trim()}
-          className="gap-2"
-        >
-          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />}
-          {loading ? "Generating…" : "Generate agent prompts"}
-        </Button>
-
-        {error && (
-          <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-4 py-3">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            {error}
-          </div>
-        )}
-
-        {result && (
-          <PromptOutput
-            title={`Agentic Team: ${description.slice(0, 40)}…`}
-            content={result.content}
-            type="agentic"
-            agentType="agentic-team"
-            modelUsed={result.model}
-            metadata={{ description }}
-            onSave={savedId ? undefined : handleSave}
-            isSaving={saving}
-            savedId={savedId}
-          />
-        )}
       </div>
     </div>
   );
